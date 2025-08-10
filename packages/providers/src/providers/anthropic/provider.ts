@@ -30,8 +30,10 @@ export class AnthropicProvider extends BaseProvider {
 		account: Account,
 		clientId: string,
 	): Promise<TokenRefreshResult> {
-		if (!account.refresh_token) {
-			throw new Error(`No refresh token available for account ${account.name}`);
+		if (!account.refresh_token || account.refresh_token === "") {
+			throw new Error(
+				`No refresh token available for account ${account.name} (API key accounts cannot refresh tokens)`,
+			);
 		}
 
 		log.info(
@@ -98,8 +100,10 @@ export class AnthropicProvider extends BaseProvider {
 		};
 	}
 
-	buildUrl(path: string, query: string): string {
-		return `https://api.anthropic.com${path}${query}`;
+	buildUrl(path: string, query: string, account?: Account): string {
+		// Use account-specific base URL if available, otherwise use default
+		const baseUrl = account?.base_url || "https://api.anthropic.com";
+		return `${baseUrl}${path}${query}`;
 	}
 
 	prepareHeaders(

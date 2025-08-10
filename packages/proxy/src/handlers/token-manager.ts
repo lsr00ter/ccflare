@@ -95,8 +95,11 @@ export async function getValidAccessToken(
 	account: Account,
 	ctx: ProxyContext,
 ): Promise<string> {
-	// API key accounts don't use access tokens
-	if (!account.refresh_token && account.api_key) {
+	// API key accounts don't use access tokens (refresh_token is empty or null, but api_key is present)
+	if (
+		(!account.refresh_token || account.refresh_token === "") &&
+		account.api_key
+	) {
 		// Return empty string - the API key will be used in prepareHeaders
 		return "";
 	}

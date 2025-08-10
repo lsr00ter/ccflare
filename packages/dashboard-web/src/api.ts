@@ -58,10 +58,33 @@ class API extends HttpClient {
 		name: string;
 		mode: "max" | "console";
 		tier: number;
-	}): Promise<{ authUrl: string; sessionId: string }> {
+		baseUrl?: string;
+	}): Promise<
+		| { authUrl: string; sessionId: string }
+		| { requiresApiKey: boolean; baseUrl: string }
+	> {
 		try {
-			return await this.post<{ authUrl: string; sessionId: string }>(
-				"/api/oauth/init",
+			return await this.post<
+				| { authUrl: string; sessionId: string }
+				| { requiresApiKey: boolean; baseUrl: string }
+			>("/api/oauth/init", data);
+		} catch (error) {
+			if (error instanceof HttpError) {
+				throw new Error(error.message);
+			}
+			throw error;
+		}
+	}
+
+	async addDirectAccount(data: {
+		name: string;
+		apiKey: string;
+		tier: number;
+		baseUrl: string;
+	}): Promise<{ message: string; accountId: string }> {
+		try {
+			return await this.post<{ message: string; accountId: string }>(
+				"/api/accounts/direct",
 				data,
 			);
 		} catch (error) {
@@ -290,6 +313,44 @@ class API extends HttpClient {
 				model: string;
 			}>("/api/agents/bulk-preference", { model });
 			return { updatedCount: response.updatedCount };
+		} catch (error) {
+			if (error instanceof HttpError) {
+				throw new Error(error.message);
+			}
+			throw error;
+		}
+	}
+
+	async updateAccountTier(
+		accountId: string,
+		tier: number,
+	): Promise<{ success: boolean; tier: number }> {
+		try {
+			return await this.post<{ success: boolean; tier: number }>(
+				`/api/accounts/${accountId}/tier`,
+				{ tier },
+			);
+		} catch (error) {
+			if (error instanceof HttpError) {
+				throw new Error(error.message);
+			}
+			throw error;
+		}
+	}
+
+	async updateAccountRateLimit(
+		accountId: string,
+		rateLimitConfig: {
+			customLimit?: number;
+			resetWindowMinutes?: number;
+			enabled: boolean;
+		},
+	): Promise<{ success: boolean; message: string }> {
+		try {
+			return await this.post<{ success: boolean; message: string }>(
+				`/api/accounts/${accountId}/rate-limit`,
+				rateLimitConfig,
+			);
 		} catch (error) {
 			if (error instanceof HttpError) {
 				throw new Error(error.message);

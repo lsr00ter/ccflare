@@ -48,6 +48,7 @@ export function createAccountsListHandler(db: Database) {
 					session_request_count,
 					COALESCE(account_tier, 1) as account_tier,
 					COALESCE(paused, 0) as paused,
+					base_url,
 					CASE 
 						WHEN expires_at > ?1 THEN 1 
 						ELSE 0 
@@ -82,6 +83,7 @@ export function createAccountsListHandler(db: Database) {
 			session_request_count: number;
 			account_tier: number;
 			paused: 0 | 1;
+			base_url: string | null;
 			token_valid: 0 | 1;
 			rate_limited: 0 | 1;
 			session_info: string | null;
@@ -133,6 +135,7 @@ export function createAccountsListHandler(db: Database) {
 					: null,
 				rateLimitRemaining: account.rate_limit_remaining,
 				sessionInfo: account.session_info || "",
+				baseUrl: account.base_url,
 			};
 		});
 
@@ -261,6 +264,90 @@ export function createAccountAddHandler(
 }
 
 /**
+ * Create a direct account add handler for API key accounts
+ */
+export function createDirectAccountAddHandler(dbOps: DatabaseOperations) {
+	return async (req: Request): Promise<Response> => {
+		try {
+			const body = await req.json();
+
+			// Validate account name
+			const name = validateString(body.name, "name", {
+				required: true,
+				minLength: 1,
+				maxLength: 100,
+				pattern: patterns.accountName,
+				transform: sanitizers.trim,
+			});
+
+			if (!name) {
+				return errorResponse(BadRequest("Account name is required"));
+			}
+
+			// Validate API key
+			const apiKey = validateString(body.apiKey, "apiKey", {
+				required: true,
+				minLength: 1,
+			});
+
+			if (!apiKey) {
+				return errorResponse(BadRequest("API key is required"));
+			}
+
+			// Validate base URL
+			const baseUrl = validateString(body.baseUrl, "baseUrl", {
+				required: true,
+				minLength: 1,
+			});
+
+			if (!baseUrl) {
+				return errorResponse(BadRequest("Base URL is required"));
+			}
+
+			// Validate tier
+			const tier = (validateNumber(body.tier, "tier", {
+				allowedValues: [1, 5, 20] as const,
+			}) || 1) as 1 | 5 | 20;
+
+			try {
+				// Add account directly to database with API key authentication
+				const accountId = crypto.randomUUID();
+				const now = Date.now();
+
+				dbOps.getDatabase().run(
+					`INSERT INTO accounts (
+						id, name, provider, api_key, refresh_token,
+						created_at, request_count, total_requests, account_tier, base_url
+					) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`,
+					[accountId, name, "anthropic", apiKey, "", now, tier, baseUrl],
+				);
+
+				return jsonResponse({
+					success: true,
+					message: `Account ${name} added successfully with custom API key`,
+					tier,
+					accountId,
+				});
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					error.message.includes("UNIQUE constraint failed")
+				) {
+					return errorResponse(BadRequest("Account name already exists"));
+				}
+				log.error("Direct account add error:", error);
+				return errorResponse(InternalServerError((error as Error).message));
+			}
+		} catch (error) {
+			log.error("Direct account add error:", error);
+			return errorResponse(
+				error instanceof Error ? error : new Error("Failed to add account"),
+			);
+		}
+	};
+}
+
+/**
  * Create an account remove handler
  */
 export function createAccountRemoveHandler(dbOps: DatabaseOperations) {
@@ -367,6 +454,78 @@ export function createAccountResumeHandler(dbOps: DatabaseOperations) {
 		} catch (error) {
 			return errorResponse(
 				error instanceof Error ? error : new Error("Failed to resume account"),
+			);
+		}
+	};
+}
+
+/**
+ * Create an account rate limit update handler
+ */
+export function createAccountRateLimitUpdateHandler(dbOps: DatabaseOperations) {
+	return async (req: Request, accountId: string): Promise<Response> => {
+		try {
+			const body = await req.json();
+
+			// Validate rate limit configuration
+			const enabled = body.enabled === true;
+
+			if (enabled) {
+				const customLimit = validateNumber(body.customLimit, "customLimit", {
+					min: 1,
+					max: 100000,
+					integer: true,
+				});
+
+				const resetWindowMinutes = validateNumber(
+					body.resetWindowMinutes,
+					"resetWindowMinutes",
+					{
+						min: 1,
+						max: 1440,
+						integer: true,
+					},
+				);
+
+				if (!customLimit || !resetWindowMinutes) {
+					return errorResponse(
+						BadRequest(
+							"Custom limit and reset window are required when enabled",
+						),
+					);
+				}
+
+				// Store custom rate limit configuration
+				// Note: This is a simplified implementation - in production you might want
+				// to add additional database fields for custom rate limits
+				const resetTime = Date.now() + resetWindowMinutes * 60 * 1000;
+
+				dbOps.updateAccountRateLimitMeta(
+					accountId,
+					`custom:${customLimit}/${resetWindowMinutes}m`,
+					resetTime,
+					customLimit,
+				);
+
+				return jsonResponse({
+					success: true,
+					message: `Custom rate limit set: ${customLimit} requests per ${resetWindowMinutes} minutes`,
+				});
+			} else {
+				// Disable custom rate limiting - clear custom status
+				dbOps.updateAccountRateLimitMeta(accountId, "OK", null, null);
+
+				return jsonResponse({
+					success: true,
+					message: "Custom rate limiting disabled - using automatic detection",
+				});
+			}
+		} catch (error) {
+			log.error("Account rate limit update error:", error);
+			return errorResponse(
+				error instanceof Error
+					? error
+					: new Error("Failed to update rate limit"),
 			);
 		}
 	};

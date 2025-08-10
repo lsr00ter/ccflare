@@ -148,6 +148,8 @@ export async function handleProxy(
 
 	// 8. Try each account
 	for (let i = 0; i < accounts.length; i++) {
+		log.info(`Trying account ${i + 1}/${accounts.length}: ${accounts[i].name}`);
+
 		const response = await proxyWithAccount(
 			req,
 			url,
@@ -160,7 +162,12 @@ export async function handleProxy(
 		);
 
 		if (response) {
+			log.info(
+				`Successfully proxied request with account: ${accounts[i].name}`,
+			);
 			return response;
+		} else {
+			log.warn(`Account ${accounts[i].name} failed - trying next account`);
 		}
 	}
 

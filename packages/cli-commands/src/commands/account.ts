@@ -14,6 +14,7 @@ export interface AddAccountOptions {
 	name: string;
 	mode?: "max" | "console";
 	tier?: 1 | 5 | 20;
+	baseUrl?: string;
 	adapter?: PromptAdapter;
 }
 
@@ -37,9 +38,64 @@ export async function addAccount(
 		name,
 		mode: providedMode,
 		tier: providedTier,
+		baseUrl,
 		adapter = stdPromptAdapter,
 	} = options;
 
+	// Check if account already exists
+	const existingAccounts = dbOps.getAllAccounts();
+	if (existingAccounts.some((a) => a.name === name)) {
+		throw new Error(`Account with name '${name}' already exists`);
+	}
+
+	// If baseUrl is provided, use direct API key flow instead of OAuth
+	if (baseUrl) {
+		console.log(`\nAdding account with custom API base URL: ${baseUrl}`);
+		console.log(
+			"Since you're using a custom base URL, OAuth flow will be skipped.",
+		);
+		console.log("Please provide your API key directly.\n");
+
+		// Get API key from user
+		const apiKey = await adapter.input("Enter your API key: ");
+
+		if (!apiKey || !apiKey.trim()) {
+			throw new Error("API key is required");
+		}
+
+		// Get tier
+		const tier =
+			providedTier ||
+			(await adapter.select(
+				"Select the tier for this account (used for weighted load balancing):",
+				[
+					{ label: "1x tier (default)", value: 1 },
+					{ label: "5x tier (higher capacity)", value: 5 },
+					{ label: "20x tier (enterprise)", value: 20 },
+				],
+			));
+
+		// Create account directly in database
+		const accountId = crypto.randomUUID();
+		const db = dbOps.getDatabase();
+
+		db.run(
+			`
+			INSERT INTO accounts (
+				id, name, provider, api_key, refresh_token, access_token, expires_at, 
+				created_at, request_count, total_requests, account_tier, base_url
+			) VALUES (?, ?, ?, ?, '', NULL, NULL, ?, 0, 0, ?, ?)
+			`,
+			[accountId, name, "anthropic", apiKey.trim(), Date.now(), tier, baseUrl],
+		);
+
+		console.log(`\nAccount '${name}' added successfully!`);
+		console.log(`Type: Custom API (${baseUrl})`);
+		console.log(`Tier: ${tier}x`);
+		return;
+	}
+
+	// Standard OAuth flow for official Anthropic API
 	// Create OAuth flow instance
 	const oauthFlow = await createOAuthFlow(dbOps, config);
 
@@ -55,6 +111,7 @@ export async function addAccount(
 	const flowResult = await oauthFlow.begin({
 		name,
 		mode: mode as "max" | "console",
+		baseUrl,
 	});
 	const { authUrl, sessionId } = flowResult;
 

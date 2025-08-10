@@ -16,7 +16,7 @@ export interface OAuthFlowResult extends BeginResult {
 export async function beginAddAccount(
 	options: AddAccountOptions,
 ): Promise<OAuthFlowResult> {
-	const { name, mode = "max" } = options;
+	const { name, mode = "max", baseUrl } = options;
 	const config = new Config();
 	const dbOps = DatabaseFactory.getInstance();
 
@@ -24,7 +24,7 @@ export async function beginAddAccount(
 	const oauthFlow = await createOAuthFlow(dbOps, config);
 
 	// Begin OAuth flow
-	const flowResult = await oauthFlow.begin({ name, mode });
+	const flowResult = await oauthFlow.begin({ name, mode, baseUrl });
 
 	// Open browser
 	console.log(`\nOpening browser to authenticate...`);
@@ -73,6 +73,7 @@ export async function addAccount(options: AddAccountOptions): Promise<void> {
 		name: options.name,
 		mode: options.mode || "max",
 		tier: options.tier || 1,
+		baseUrl: options.baseUrl,
 	});
 }
 

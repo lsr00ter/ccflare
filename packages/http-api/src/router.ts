@@ -2,11 +2,13 @@ import { validateNumber } from "@ccflare/core";
 import {
 	createAccountAddHandler,
 	createAccountPauseHandler,
+	createAccountRateLimitUpdateHandler,
 	createAccountRemoveHandler,
 	createAccountRenameHandler,
 	createAccountResumeHandler,
 	createAccountsListHandler,
 	createAccountTierUpdateHandler,
+	createDirectAccountAddHandler,
 } from "./handlers/accounts";
 import {
 	createAgentPreferenceUpdateHandler,
@@ -58,6 +60,7 @@ export class APIRouter {
 		const statsResetHandler = createStatsResetHandler(dbOps);
 		const accountsHandler = createAccountsListHandler(db);
 		const accountAddHandler = createAccountAddHandler(dbOps, config);
+		const directAccountAddHandler = createDirectAccountAddHandler(dbOps);
 		const _accountRemoveHandler = createAccountRemoveHandler(dbOps);
 		const _accountTierHandler = createAccountTierUpdateHandler(dbOps);
 		const requestsSummaryHandler = createRequestsSummaryHandler(db);
@@ -78,6 +81,9 @@ export class APIRouter {
 		this.handlers.set("POST:/api/stats/reset", () => statsResetHandler());
 		this.handlers.set("GET:/api/accounts", () => accountsHandler());
 		this.handlers.set("POST:/api/accounts", (req) => accountAddHandler(req));
+		this.handlers.set("POST:/api/accounts/direct", (req) =>
+			directAccountAddHandler(req),
+		);
 		this.handlers.set("POST:/api/oauth/init", (req) => oauthInitHandler(req));
 		this.handlers.set("POST:/api/oauth/callback", (req) =>
 			oauthCallbackHandler(req),
@@ -204,6 +210,16 @@ export class APIRouter {
 					req,
 					url,
 				);
+			}
+
+			// Account rate limit update
+			if (path.endsWith("/rate-limit") && method === "POST") {
+				const rateLimitHandler = createAccountRateLimitUpdateHandler(
+					this.context.dbOps,
+				);
+				return await this.wrapHandler((req) =>
+					rateLimitHandler(req, accountId),
+				)(req, url);
 			}
 
 			// Account removal

@@ -50,6 +50,7 @@ Options:
   --add-account <name> Add a new account
     --mode <max|console>  Account mode (default: max)
     --tier <1|5|20>       Account tier (default: 1)
+    --base-url <url>      Custom API base URL for this account
   --list               List all accounts
   --remove <name>      Remove an account
   --pause <name>       Pause an account
@@ -116,6 +117,7 @@ Examples:
 			name: parsed.addAccount,
 			mode: parsed.mode || "max",
 			tier: parsed.tier || 1,
+			baseUrl: parsed.baseUrl,
 		});
 		console.log(`✅ Account "${parsed.addAccount}" added successfully`);
 		return;

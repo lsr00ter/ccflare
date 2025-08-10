@@ -22,6 +22,7 @@ export interface AccountRow {
 	rate_limit_reset?: number | null;
 	rate_limit_status?: string | null;
 	rate_limit_remaining?: number | null;
+	base_url?: string | null;
 }
 
 // Domain model - used throughout the application
@@ -45,6 +46,7 @@ export interface Account {
 	rate_limit_reset: number | null;
 	rate_limit_status: string | null;
 	rate_limit_remaining: number | null;
+	base_url: string | null;
 }
 
 // API response type - what clients receive
@@ -64,6 +66,7 @@ export interface AccountResponse {
 	rateLimitReset: string | null;
 	rateLimitRemaining: number | null;
 	sessionInfo: string;
+	baseUrl: string | null;
 }
 
 // UI display type - used in TUI and web dashboard
@@ -111,6 +114,7 @@ export interface AddAccountOptions {
 	name: string;
 	mode?: "max" | "console";
 	tier?: 1 | 5 | 20;
+	baseUrl?: string;
 }
 
 export interface AccountDeleteRequest {
@@ -139,6 +143,7 @@ export function toAccount(row: AccountRow): Account {
 		rate_limit_reset: row.rate_limit_reset || null,
 		rate_limit_status: row.rate_limit_status || null,
 		rate_limit_remaining: row.rate_limit_remaining || null,
+		base_url: row.base_url || null,
 	};
 }
 
@@ -177,6 +182,7 @@ export function toAccountResponse(account: Account): AccountResponse {
 			: null,
 		rateLimitRemaining: account.rate_limit_remaining,
 		sessionInfo,
+		baseUrl: account.base_url,
 	};
 }
 

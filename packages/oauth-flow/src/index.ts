@@ -12,6 +12,7 @@ import type { AccountTier } from "@ccflare/types";
 export interface BeginOptions {
 	name: string;
 	mode: "max" | "console";
+	baseUrl?: string;
 }
 
 export interface BeginResult {
@@ -20,6 +21,7 @@ export interface BeginResult {
 	pkce: PKCEChallenge;
 	oauthConfig: OAuthProviderConfig;
 	mode: "max" | "console"; // Track mode to handle differently in complete()
+	baseUrl?: string;
 }
 
 export interface CompleteOptions {
@@ -71,7 +73,7 @@ export class OAuthFlow {
 	 * @throws {Error} If account name already exists
 	 */
 	async begin(opts: BeginOptions): Promise<BeginResult> {
-		const { name, mode } = opts;
+		const { name, mode, baseUrl } = opts;
 
 		// Check if account already exists
 		const existingAccounts = this.dbOps.getAllAccounts();
@@ -110,6 +112,7 @@ export class OAuthFlow {
 			pkce,
 			oauthConfig,
 			mode,
+			baseUrl,
 		};
 	}
 
@@ -151,27 +154,64 @@ export class OAuthFlow {
 
 		// Handle console mode - create API key
 		if (flowData.mode === "console" || !tokens.refreshToken) {
-			const apiKey = await this.createAnthropicApiKey(tokens.accessToken);
-			return this.createAccountWithApiKey(accountId, name, apiKey, tier);
+			// If custom base URL is provided, we shouldn't reach this point
+			// as the API key should be provided directly by the user
+			if (flowData.baseUrl) {
+				throw new Error(
+					"Console mode with custom base URL should use direct API key input, not OAuth flow",
+				);
+			}
+
+			const apiKey = await this.createAnthropicApiKey(
+				tokens.accessToken,
+				flowData.baseUrl,
+			);
+			return this.createAccountWithApiKey(
+				accountId,
+				name,
+				apiKey,
+				tier,
+				flowData.baseUrl,
+			);
 		}
 
 		// Handle max mode - standard OAuth flow
-		return this.createAccountWithOAuth(accountId, name, tokens, tier);
+		return this.createAccountWithOAuth(
+			accountId,
+			name,
+			tokens,
+			tier,
+			flowData.baseUrl,
+		);
 	}
 
 	/**
-	 * Creates an API key using the Anthropic console endpoint.
+	 * Creates an API key using the standard Anthropic console endpoint.
 	 *
-	 * This is used for "console" mode accounts where users want a static API key
-	 * instead of OAuth tokens that need refreshing.
+	 * This is used for "console" mode accounts with standard Anthropic API
+	 * where users want a static API key instead of OAuth tokens that need refreshing.
+	 *
+	 * NOTE: This method should NOT be used for custom base URLs - those should
+	 * use direct API key input to bypass OAuth entirely.
 	 *
 	 * @param accessToken - Temporary access token from OAuth flow
 	 * @returns The newly created API key
 	 * @throws {Error} If API key creation fails
 	 */
-	private async createAnthropicApiKey(accessToken: string): Promise<string> {
+	private async createAnthropicApiKey(
+		accessToken: string,
+		baseUrl?: string,
+	): Promise<string> {
+		// This should only be called for standard Anthropic API (no custom baseUrl)
+		if (baseUrl && baseUrl !== "https://api.anthropic.com") {
+			throw new Error(
+				"Custom base URL accounts should use direct API key input, not OAuth API key creation",
+			);
+		}
+
+		// Use standard Anthropic console endpoint for API key creation
 		const response = await fetch(
-			"https://api.anthropic.com/api/oauth/claude_cli/create_api_key",
+			"https://console.anthropic.com/api/oauth/claude_cli/create_api_key",
 			{
 				method: "POST",
 				headers: {
@@ -206,6 +246,7 @@ export class OAuthFlow {
 		name: string,
 		tokens: OAuthTokens,
 		tier: AccountTier,
+		baseUrl?: string,
 	): AccountCreated {
 		const db = this.dbOps.getDatabase();
 
@@ -213,8 +254,8 @@ export class OAuthFlow {
 			`
 			INSERT INTO accounts (
 				id, name, provider, api_key, refresh_token, access_token, expires_at, 
-				created_at, request_count, total_requests, account_tier
-			) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, 0, 0, ?)
+				created_at, request_count, total_requests, account_tier, base_url
+			) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, 0, 0, ?, ?)
 			`,
 			[
 				id,
@@ -225,6 +266,7 @@ export class OAuthFlow {
 				tokens.expiresAt,
 				Date.now(),
 				tier,
+				baseUrl || null,
 			],
 		);
 
@@ -254,6 +296,7 @@ export class OAuthFlow {
 		name: string,
 		apiKey: string,
 		tier: AccountTier,
+		baseUrl?: string,
 	): AccountCreated {
 		const db = this.dbOps.getDatabase();
 
@@ -261,10 +304,10 @@ export class OAuthFlow {
 			`
 			INSERT INTO accounts (
 				id, name, provider, api_key, refresh_token, access_token, expires_at, 
-				created_at, request_count, total_requests, account_tier
-			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?)
+				created_at, request_count, total_requests, account_tier, base_url
+			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?)
 			`,
-			[id, name, "anthropic", apiKey, Date.now(), tier],
+			[id, name, "anthropic", apiKey, Date.now(), tier, baseUrl || null],
 		);
 
 		return {

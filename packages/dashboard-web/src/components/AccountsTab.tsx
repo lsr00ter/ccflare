@@ -5,7 +5,9 @@ import { useAccounts, useRenameAccount } from "../hooks/queries";
 import { useApiError } from "../hooks/useApiError";
 import {
 	AccountAddForm,
+	AccountEditDialog,
 	AccountList,
+	type AccountUpdates,
 	DeleteConfirmationDialog,
 	RenameAccountDialog,
 } from "./accounts";
@@ -45,17 +47,44 @@ export function AccountsTab() {
 		isOpen: false,
 		account: null,
 	});
+	const [editDialog, setEditDialog] = useState<{
+		isOpen: boolean;
+		account: Account | null;
+		isLoading: boolean;
+	}>({
+		isOpen: false,
+		account: null,
+		isLoading: false,
+	});
 	const [actionError, setActionError] = useState<string | null>(null);
 
 	const handleAddAccount = async (params: {
 		name: string;
 		mode: "max" | "console";
 		tier: number;
+		baseUrl?: string;
 	}) => {
 		try {
 			const result = await api.initAddAccount(params);
 			setActionError(null);
 			return result;
+		} catch (err) {
+			setActionError(formatError(err));
+			throw err;
+		}
+	};
+
+	const handleAddDirectAccount = async (params: {
+		name: string;
+		apiKey: string;
+		tier: number;
+		baseUrl: string;
+	}) => {
+		try {
+			await api.addDirectAccount(params);
+			await loadAccounts();
+			setAdding(false);
+			setActionError(null);
 		} catch (err) {
 			setActionError(formatError(err));
 			throw err;
@@ -104,6 +133,50 @@ export function AccountsTab() {
 
 	const handleRename = (account: Account) => {
 		setRenameDialog({ isOpen: true, account });
+	};
+
+	const handleEdit = (account: Account) => {
+		setEditDialog({ isOpen: true, account, isLoading: false });
+	};
+
+	const handleSaveEdit = async (accountId: string, updates: AccountUpdates) => {
+		setEditDialog((prev) => ({ ...prev, isLoading: true }));
+
+		try {
+			// Apply updates sequentially
+			if (updates.name) {
+				await renameAccount.mutateAsync({
+					accountId,
+					newName: updates.name,
+				});
+			}
+
+			if (updates.tier !== undefined) {
+				await api.updateAccountTier(accountId, updates.tier);
+			}
+
+			if (updates.paused !== undefined) {
+				if (updates.paused) {
+					await api.pauseAccount(accountId);
+				} else {
+					await api.resumeAccount(accountId);
+				}
+			}
+
+			if (updates.rateLimitOverride) {
+				await api.updateAccountRateLimit(accountId, updates.rateLimitOverride);
+			}
+
+			// Refresh accounts list
+			await loadAccounts();
+
+			// Close dialog
+			setEditDialog({ isOpen: false, account: null, isLoading: false });
+			setActionError(null);
+		} catch (err) {
+			setActionError(formatError(err));
+			setEditDialog((prev) => ({ ...prev, isLoading: false }));
+		}
 	};
 
 	const handleConfirmRename = async (newName: string) => {
@@ -179,6 +252,7 @@ export function AccountsTab() {
 						<AccountAddForm
 							onAddAccount={handleAddAccount}
 							onCompleteAccount={handleCompleteAccount}
+							onAddDirectAccount={handleAddDirectAccount}
 							onCancel={() => {
 								setAdding(false);
 								setActionError(null);
@@ -195,6 +269,7 @@ export function AccountsTab() {
 						onPauseToggle={handlePauseToggle}
 						onRemove={handleRemoveAccount}
 						onRename={handleRename}
+						onEdit={handleEdit}
 					/>
 				</CardContent>
 			</Card>
@@ -228,6 +303,18 @@ export function AccountsTab() {
 					onClose={() => setRenameDialog({ isOpen: false, account: null })}
 					onRename={handleConfirmRename}
 					isLoading={renameAccount.isPending}
+				/>
+			)}
+
+			{editDialog.isOpen && (
+				<AccountEditDialog
+					isOpen={editDialog.isOpen}
+					account={editDialog.account}
+					onClose={() =>
+						setEditDialog({ isOpen: false, account: null, isLoading: false })
+					}
+					onSave={handleSaveEdit}
+					isLoading={editDialog.isLoading}
 				/>
 			)}
 		</div>

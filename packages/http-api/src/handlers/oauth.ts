@@ -43,6 +43,21 @@ export function createOAuthInitHandler(dbOps: DatabaseOperations) {
 					allowedValues: [1, 5, 20] as const,
 				}) || 1;
 
+			// Validate base URL (optional)
+			const baseUrl = validateString(body.baseUrl, "baseUrl", {
+				required: false,
+			});
+
+			// If baseUrl is provided, skip OAuth and return special response indicating direct API key is needed
+			if (baseUrl) {
+				return jsonResponse({
+					success: true,
+					requiresApiKey: true,
+					message: `Custom base URL provided (${baseUrl}). OAuth will be skipped - please use the direct account creation endpoint.`,
+					baseUrl,
+				});
+			}
+
 			const config = new Config();
 			const oauthFlow = await createOAuthFlow(dbOps, config);
 
@@ -51,6 +66,7 @@ export function createOAuthInitHandler(dbOps: DatabaseOperations) {
 				const flowResult = await oauthFlow.begin({
 					name,
 					mode,
+					baseUrl,
 				});
 
 				// Store tier in session for later use

@@ -98,7 +98,9 @@ export async function proxyWithAccount(
 	ctx: ProxyContext,
 ): Promise<Response | null> {
 	try {
-		log.info(`Attempting request with account: ${account.name}`);
+		log.info(
+			`Attempting request with account: ${account.name} (attempt ${failoverAttempts + 1})`,
+		);
 
 		// Get valid access token
 		const accessToken = await getValidAccessToken(account, ctx);
@@ -109,7 +111,7 @@ export async function proxyWithAccount(
 			accessToken,
 			account.api_key || undefined,
 		);
-		const targetUrl = ctx.provider.buildUrl(url.pathname, url.search);
+		const targetUrl = ctx.provider.buildUrl(url.pathname, url.search, account);
 
 		// Make the request
 		const response = await makeProxyRequest(
@@ -120,11 +122,21 @@ export async function proxyWithAccount(
 			!!req.body,
 		);
 
-		// Process response and check for rate limit
-		const isRateLimited = processProxyResponse(response, account, ctx);
-		if (isRateLimited) {
+		// Process response and check for failover conditions
+		log.info(
+			`Account ${account.name} received response: ${response.status} ${response.statusText}`,
+		);
+		const shouldFailover = processProxyResponse(response, account, ctx);
+		if (shouldFailover) {
+			log.warn(
+				`Account ${account.name} failed with status ${response.status} - switching to next account`,
+			);
 			return null; // Signal to try next account
 		}
+
+		log.info(
+			`Account ${account.name} succeeded with status ${response.status} - returning response`,
+		);
 
 		// Forward response to client
 		return forwardToClient(
@@ -144,6 +156,9 @@ export async function proxyWithAccount(
 			ctx,
 		);
 	} catch (err) {
+		log.error(
+			`Account ${account.name} failed with exception - switching to next account`,
+		);
 		handleProxyError(err, account, log);
 		return null;
 	}

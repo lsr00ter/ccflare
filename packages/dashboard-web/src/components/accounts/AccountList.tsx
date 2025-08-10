@@ -6,6 +6,7 @@ interface AccountListProps {
 	onPauseToggle: (account: Account) => void;
 	onRemove: (name: string) => void;
 	onRename: (account: Account) => void;
+	onEdit?: (account: Account) => void;
 }
 
 export function AccountList({
@@ -13,6 +14,7 @@ export function AccountList({
 	onPauseToggle,
 	onRemove,
 	onRename,
+	onEdit,
 }: AccountListProps) {
 	if (!accounts || accounts.length === 0) {
 		return <p className="text-muted-foreground">No accounts configured</p>;
@@ -45,6 +47,7 @@ export function AccountList({
 					onPauseToggle={onPauseToggle}
 					onRemove={onRemove}
 					onRename={onRename}
+					onEdit={onEdit}
 				/>
 			))}
 		</div>

@@ -5,6 +5,7 @@ import {
 	Edit2,
 	Pause,
 	Play,
+	Settings,
 	Trash2,
 } from "lucide-react";
 import type { Account } from "../../api";
@@ -17,6 +18,7 @@ interface AccountListItemProps {
 	onPauseToggle: (account: Account) => void;
 	onRemove: (name: string) => void;
 	onRename: (account: Account) => void;
+	onEdit?: (account: Account) => void;
 }
 
 export function AccountListItem({
@@ -25,6 +27,7 @@ export function AccountListItem({
 	onPauseToggle,
 	onRemove,
 	onRename,
+	onEdit,
 }: AccountListItemProps) {
 	const presenter = new AccountPresenter(account);
 
@@ -50,7 +53,17 @@ export function AccountListItem({
 						</div>
 						<p className="text-sm text-muted-foreground">
 							{account.provider} • {presenter.tierDisplay}
+							{account.baseUrl && (
+								<span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+									Custom API
+								</span>
+							)}
 						</p>
+						{account.baseUrl && (
+							<p className="text-xs text-muted-foreground font-mono">
+								{account.baseUrl}
+							</p>
+						)}
 					</div>
 					<div className="flex items-center gap-2">
 						{presenter.isRateLimited ? (
@@ -70,6 +83,16 @@ export function AccountListItem({
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
+					{onEdit && (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => onEdit(account)}
+							title="Edit account settings"
+						>
+							<Settings className="h-4 w-4" />
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						size="sm"

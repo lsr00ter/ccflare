@@ -170,6 +170,16 @@ export function runMigrations(db: Database): void {
 		log.info("Added rate_limit_remaining column to accounts table");
 	}
 
+	// Add base_url column if it doesn't exist
+	if (!accountsColumnNames.includes("base_url")) {
+		db.prepare("ALTER TABLE accounts ADD COLUMN base_url TEXT").run();
+		log.info("Added base_url column to accounts table");
+	}
+
+	// Check if refresh_token column needs to be nullable (for API key accounts)
+	// SQLite doesn't support modifying column constraints directly, but we handle this in the app logic
+	// by using empty string for API key accounts
+
 	// Check columns in requests table
 	const requestsInfo = db
 		.prepare("PRAGMA table_info(requests)")

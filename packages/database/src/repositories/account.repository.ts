@@ -10,7 +10,8 @@ export class AccountRepository extends BaseRepository<Account> {
 				rate_limited_until, session_start, session_request_count,
 				COALESCE(account_tier, 1) as account_tier,
 				COALESCE(paused, 0) as paused,
-				rate_limit_reset, rate_limit_status, rate_limit_remaining
+				rate_limit_reset, rate_limit_status, rate_limit_remaining,
+				base_url
 			FROM accounts
 		`);
 		return rows.map(toAccount);
@@ -25,7 +26,8 @@ export class AccountRepository extends BaseRepository<Account> {
 				rate_limited_until, session_start, session_request_count,
 				COALESCE(account_tier, 1) as account_tier,
 				COALESCE(paused, 0) as paused,
-				rate_limit_reset, rate_limit_status, rate_limit_remaining
+				rate_limit_reset, rate_limit_status, rate_limit_remaining,
+				base_url
 			FROM accounts
 			WHERE id = ?
 		`,

@@ -9,6 +9,7 @@ export interface ParsedArgs {
 	addAccount?: string;
 	mode?: "max" | "console";
 	tier?: 1 | 5 | 20;
+	baseUrl?: string;
 	list?: boolean;
 	remove?: string;
 	pause?: string;
@@ -33,6 +34,7 @@ export function parseArgs(args: string[]): ParsedArgs {
 				"add-account": { type: "string" },
 				mode: { type: "string" },
 				tier: { type: "string" },
+				"base-url": { type: "string" },
 				list: { type: "boolean" },
 				remove: { type: "string" },
 				pause: { type: "string" },
@@ -58,6 +60,7 @@ export function parseArgs(args: string[]): ParsedArgs {
 		if (values["add-account"]) result.addAccount = values["add-account"];
 		if (values.mode) result.mode = values.mode as "max" | "console";
 		if (values.tier) result.tier = parseInt(values.tier, 10) as 1 | 5 | 20;
+		if (values["base-url"]) result.baseUrl = values["base-url"];
 		if (values.list) result.list = true;
 		if (values.remove) result.remove = values.remove;
 		if (values.pause) result.pause = values.pause;

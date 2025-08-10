@@ -4,9 +4,7 @@
 
 The ultimate Claude API proxy with intelligent load balancing across multiple accounts. Full visibility into every request, response, and rate limit.
 
-
-https://github.com/user-attachments/assets/c859872f-ca5e-4f8b-b6a0-7cc7461fe62a
-
+<https://github.com/user-attachments/assets/c859872f-ca5e-4f8b-b6a0-7cc7461fe62a>
 
 ![ccflare Dashboard](apps/lander/src/screenshot-dashboard.png)
 
@@ -36,21 +34,25 @@ export ANTHROPIC_BASE_URL=http://localhost:8080
 ## Features
 
 ### 🎯 Intelligent Load Balancing
+
 - **Session-based** - Maintain conversation context (5hr sessions)
 
 ### 📈 Real-Time Analytics
+
 - Token usage tracking per request
 - Response time monitoring
 - Rate limit detection and warnings
 - Cost estimation and budgeting
 
 ### 🛠️ Developer Tools
+
 - Interactive TUI (`bun run ccflare`)
 - Web dashboard (`http://localhost:8080/dashboard`)
 - CLI for account management
 - REST API for automation
 
 ### 🔒 Production Ready
+
 - Automatic failover between accounts
 - OAuth token refresh handling
 - SQLite database for persistence
@@ -59,8 +61,9 @@ export ANTHROPIC_BASE_URL=http://localhost:8080
 ## Documentation
 
 Full documentation available in [`docs/`](docs/):
+
 - [Getting Started](docs/index.md)
-- [Architecture](docs/architecture.md) 
+- [Architecture](docs/architecture.md)
 - [API Reference](docs/api-http.md)
 - [Configuration](docs/configuration.md)
 - [Load Balancing Strategies](docs/load-balancing.md)
